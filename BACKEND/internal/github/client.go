@@ -1,0 +1,148 @@
+package github
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+)
+
+type client struct {
+	token      string
+	httpClient *http.Client
+}
+
+func NewClient() Client {
+	return &client{
+		token:      os.Getenv("GITHUB_TOKEN"),
+		httpClient: &http.Client{},
+	}
+}
+
+func (c *client) fetch(url string, target interface{}) error {
+	if c.token == "" {
+		log.Println("⚠️  GitHub token not set! API call may fail.")
+	}
+	log.Printf("Fetching URL: %s", url)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		log.Printf("HTTP request error: %v", err)
+		return fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	log.Printf("GitHub response status: %s", resp.Status)
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("GitHub API returned error status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return json.Unmarshal(body, target)
+}
+
+func (c *client) GetRepos(owner string) ([]map[string]interface{}, error) {
+	log.Printf("Getting repos for owner: %s", owner)
+	var repos []map[string]interface{}
+	url := fmt.Sprintf("https://api.github.com/users/%s/repos", owner)
+
+	resp, err := c.fetchRaw(url)
+	if err != nil {
+		log.Printf("Error fetching repos: %v", err)
+		return nil, fmt.Errorf("failed to fetch repos: %w", err)
+	}
+
+	// Check if response is an object (error)
+	var obj map[string]interface{}
+	if err := json.Unmarshal(resp, &obj); err == nil {
+		if msg, ok := obj["message"]; ok {
+			log.Printf("GitHub API returned error: %v", msg)
+			return nil, fmt.Errorf("GitHub API error: %v", msg)
+		}
+	}
+
+	// Otherwise unmarshal as array
+	if err := json.Unmarshal(resp, &repos); err != nil {
+		log.Printf("Error unmarshalling repos: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal repos: %w", err)
+	}
+
+	log.Printf("Fetched %d repos for owner %s", len(repos), owner)
+	return repos, nil
+}
+
+func (c *client) fetchRaw(url string) ([]byte, error) {
+	log.Printf("Fetching raw data from URL: %s", url)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		log.Printf("HTTP request error: %v", err)
+		return nil, fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	log.Printf("GitHub raw response status: %s", resp.Status)
+	return io.ReadAll(resp.Body)
+}
+
+func (c *client) CheckCollaborator(owner, repo, user string) (bool, error) {
+	log.Printf("Checking collaborator: user=%s repo=%s/%s", user, owner, repo)
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/collaborators/%s", owner, repo, user)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		log.Printf("Error checking collaborator: %v", err)
+		return false, fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	log.Printf("Collaborator check response status: %s", resp.Status)
+
+	if resp.StatusCode == 204 {
+		log.Printf("User %s has access to repo %s", user, repo)
+		return true, nil
+	}
+
+	if resp.StatusCode == 404 {
+		log.Printf("User %s does NOT have access to repo %s", user, repo)
+		return false, nil
+	}
+
+	// For other status codes, consider it an error
+	body, _ := io.ReadAll(resp.Body)
+	return false, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+}
