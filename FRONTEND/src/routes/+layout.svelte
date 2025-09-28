@@ -52,12 +52,13 @@
 	}
 </script>
 
+export const prerender = true;
 <svelte:head>
 	<link rel="icon" href={favicon} />
 </svelte:head><!-- Sidebar overlay -->
 {#if sidebarOpen}
 	<div
-		class="bg-opacity-50 fixed inset-0 z-40 bg-black md:hidden"
+		class="fixed inset-0 z-40 bg-black bg-opacity-50 md:hidden"
 		onclick={closeSidebar}
 		onkeydown={(e) => e.key === 'Escape' && closeSidebar()}
 		role="button"
@@ -103,7 +104,7 @@
 					placeholder="Enter username or GitHub URL"
 					value={githubUser}
 					oninput={handleUserInput}
-					class="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white placeholder-gray-400 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:outline-none"
+					class="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
 				/>
 				<p class="mt-1 text-xs text-gray-400">
 					You can enter a username or paste a GitHub profile URL
@@ -120,7 +121,7 @@
 					placeholder="Enter owner username or GitHub URL"
 					value={ownerName}
 					oninput={handleOwnerInput}
-					class="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white placeholder-gray-400 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:outline-none"
+					class="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
 				/>
 				<p class="mt-1 text-xs text-gray-400">
 					The owner whose repositories you want to check access for
