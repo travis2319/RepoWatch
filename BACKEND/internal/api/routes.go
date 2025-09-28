@@ -21,17 +21,30 @@ func SetupRoutes(app *fiber.App, checkerService services.CheckerServiceInterface
 	// API routes
 	api := app.Group("/api/v1")
 
-	api.Get("/check/:owner/:user", func(c *fiber.Ctx) error {
-		owner := c.Params("owner")
-		user := c.Params("user")
+	api.Post("/check", func(c *fiber.Ctx) error {
+		// Define request body structure
+		type CheckRequest struct {
+			Owner string `json:"owner" validate:"required"`
+			User  string `json:"user" validate:"required"`
+		}
 
-		if owner == "" || user == "" {
+		var req CheckRequest
+
+		// Parse JSON body
+		if err := c.BodyParser(&req); err != nil {
 			return c.Status(400).JSON(fiber.Map{
-				"error": "owner and user parameters are required",
+				"error": "Invalid JSON format",
 			})
 		}
 
-		results, err := checkerService.CheckCollaborators(owner, user)
+		// Validate required fields
+		if req.Owner == "" || req.User == "" {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "owner and user fields are required",
+			})
+		}
+
+		results, err := checkerService.CheckCollaborators(req.Owner, req.User)
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{
 				"error": err.Error(),
@@ -81,7 +94,8 @@ func SetupRoutes(app *fiber.App, checkerService services.CheckerServiceInterface
 	app.Get("/check-single", func(c *fiber.Ctx) error {
 		owner := "travis2319"
 		repo := "PROJECT-ADAM"
-		user := "VOID-001"
+		// user := "VOID-001"
+		user := "ChetanNaikk"
 
 		result, err := checkerService.CheckSingleRepo(owner, repo, user)
 		if err != nil {

@@ -49,27 +49,27 @@ func (s *CheckerService) CheckCollaborators(owner, user string) ([]*models.Colla
 		}
 
 		// Get or create repo record
-		repoModel, err := s.repoRepo.GetByName(name, owner)
-		if err != nil {
-			// Create new repo if not exists
-			repoModel = &models.Repo{
-				Name:     name,
-				Owner:    owner,
-				FullName: fmt.Sprintf("%s/%s", owner, name),
-			}
-			if createErr := s.repoRepo.Create(repoModel); createErr != nil {
-				log.Printf("Error creating repo record: %v", createErr)
-			}
-		}
+		// repoModel, err := s.repoRepo.GetByName(name, owner)
+		// if err != nil {
+		// 	// Create new repo if not exists
+		// 	repoModel = &models.Repo{
+		// 		Name:     name,
+		// 		Owner:    owner,
+		// 		FullName: fmt.Sprintf("%s/%s", owner, name),
+		// 	}
+		// 	if createErr := s.repoRepo.Create(repoModel); createErr != nil {
+		// 		log.Printf("Error creating repo record: %v", createErr)
+		// 	}
+		// }
 
 		checkedAt := time.Now()
 
 		// Save/update collaborator record
-		if repoModel.ID != 0 {
-			if err := s.collabRepo.CreateOrUpdate(repoModel.ID, user, hasAccess, checkedAt); err != nil {
-				log.Printf("Error saving collaborator record: %v", err)
-			}
-		}
+		// if repoModel.ID != 0 {
+		// 	if err := s.collabRepo.CreateOrUpdate(repoModel.ID, user, hasAccess, checkedAt); err != nil {
+		// 		log.Printf("Error saving collaborator record: %v", err)
+		// 	}
+		// }
 
 		results = append(results, &models.CollaboratorResponse{
 			Repo:      name,
@@ -91,27 +91,27 @@ func (s *CheckerService) CheckSingleRepo(owner, repo, user string) (*models.Sing
 	}
 
 	// Get or create repo record
-	repoModel, err := s.repoRepo.GetByName(repo, owner)
-	if err != nil {
-		// Create new repo if not exists
-		repoModel = &models.Repo{
-			Name:     repo,
-			Owner:    owner,
-			FullName: fmt.Sprintf("%s/%s", owner, repo),
-		}
-		if createErr := s.repoRepo.Create(repoModel); createErr != nil {
-			log.Printf("Error creating repo record: %v", createErr)
-		}
-	}
+	// repoModel, err := s.repoRepo.GetByName(repo, owner)
+	// if err != nil {
+	// 	// Create new repo if not exists
+	// 	repoModel = &models.Repo{
+	// 		Name:     repo,
+	// 		Owner:    owner,
+	// 		FullName: fmt.Sprintf("%s/%s", owner, repo),
+	// 	}
+	// 	if createErr := s.repoRepo.Create(repoModel); createErr != nil {
+	// 		log.Printf("Error creating repo record: %v", createErr)
+	// 	}
+	// }
 
 	checkedAt := time.Now()
 
 	// Save/update collaborator record
-	if repoModel.ID != 0 {
-		if err := s.collabRepo.CreateOrUpdate(repoModel.ID, user, hasAccess, checkedAt); err != nil {
-			log.Printf("Error saving collaborator record: %v", err)
-		}
-	}
+	// if repoModel.ID != 0 {
+	// 	if err := s.collabRepo.CreateOrUpdate(repoModel.ID, user, hasAccess, checkedAt); err != nil {
+	// 		log.Printf("Error saving collaborator record: %v", err)
+	// 	}
+	// }
 
 	result := &models.SingleRepoResponse{
 		Repo:      repo,
