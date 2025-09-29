@@ -103,7 +103,7 @@
 
 		try {
 			console.log('Making API request...');
-			const response = await fetch('http://localhost:3000/api/v1/check', {
+			const response = await fetch('http://localhost:4000/api/v1/check', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'

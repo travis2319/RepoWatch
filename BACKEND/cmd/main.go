@@ -59,6 +59,6 @@ func main() {
 	// Setup routes
 	api.SetupRoutes(app, checkerService)
 
-	log.Printf("🚀 Server starting on port 3000...")
-	log.Fatal(app.Listen(":3000"))
+	log.Printf("🚀 Server starting on port 4000...")
+	log.Fatal(app.Listen(":4000"))
 }

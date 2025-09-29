@@ -1,0 +1,12 @@
+services:
+  fiber_app:
+    build: .
+    container_name: fiber_app
+    ports:
+      - "4000:4000"
+    environment:
+      - APP_ENV=development
+      - APP_PORT=4000
+    volumes:
+      - .:/app   # Mount local source for live edits
+    command: go run cmd/main.go
