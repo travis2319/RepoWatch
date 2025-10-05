@@ -1,15 +1,15 @@
-version: '3.8'
-
 services:
   frontend:
     build:
-      context: ./frontend
+      context: ./FRONTEND
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - API_URL=http://backend:8080
+      NODE_ENV: production
+      # Example: tell frontend where backend is
+      VITE_API_URL: http://backend:4000
+    restart: unless-stopped
     depends_on:
       - backend
     networks:
@@ -17,21 +17,20 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./BACKEND
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "4000:4000"
     environment:
-      - DB_PATH=/app/db/collabs.db
-      - PORT=8080
+      APP_ENV: ${APP_ENV}
+      APP_PORT: ${APP_PORT}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
     volumes:
-      - ./backend/db:/app/db
+      - ./BACKEND:/app   # Mount local source for live edits
+    command: go run cmd/main.go
     networks:
       - app-network
 
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  db-data:
