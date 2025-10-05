@@ -6,9 +6,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/travis2319/GITHUB-ACCESS/internal/github"
-	"github.com/travis2319/GITHUB-ACCESS/internal/models"
-	"github.com/travis2319/GITHUB-ACCESS/internal/repository"
+	"github.com/travis2319/RepoWatch/internal/github"
+	"github.com/travis2319/RepoWatch/internal/models"
+	"github.com/travis2319/RepoWatch/internal/repository"
 )
 
 type CheckerService struct {

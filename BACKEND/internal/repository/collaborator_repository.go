@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/travis2319/GITHUB-ACCESS/internal/models"
+	"github.com/travis2319/RepoWatch/internal/models"
 )
 
 type collaboratorRepository struct {

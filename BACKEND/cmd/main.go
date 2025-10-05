@@ -6,10 +6,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/travis2319/GITHUB-ACCESS/internal/api"
-	"github.com/travis2319/GITHUB-ACCESS/internal/github"
-	"github.com/travis2319/GITHUB-ACCESS/internal/repository"
-	"github.com/travis2319/GITHUB-ACCESS/internal/services"
+	"github.com/travis2319/RepoWatch/internal/api"
+	"github.com/travis2319/RepoWatch/internal/github"
+	"github.com/travis2319/RepoWatch/internal/repository"
+	"github.com/travis2319/RepoWatch/internal/services"
 )
 
 func main() {

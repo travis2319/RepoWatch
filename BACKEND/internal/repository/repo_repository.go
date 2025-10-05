@@ -3,7 +3,7 @@ package repository
 import (
 	"database/sql"
 
-	"github.com/travis2319/GITHUB-ACCESS/internal/models"
+	"github.com/travis2319/RepoWatch/internal/models"
 )
 
 type repoRepository struct {

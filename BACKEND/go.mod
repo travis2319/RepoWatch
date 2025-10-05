@@ -1,5 +1,4 @@
-module github.com/travis2319/GITHUB-ACCESS
-
+module github.com/travis2319/RepoWatch
 go 1.24.6
 
 require github.com/gofiber/fiber/v2 v2.52.9

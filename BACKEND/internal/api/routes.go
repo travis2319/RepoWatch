@@ -5,7 +5,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/travis2319/GITHUB-ACCESS/internal/services"
+	"github.com/travis2319/RepoWatch/internal/services"
 )
 
 func SetupRoutes(app *fiber.App, checkerService services.CheckerServiceInterface) {
