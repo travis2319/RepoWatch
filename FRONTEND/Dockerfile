@@ -1,23 +1,23 @@
 # Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:lts-trixie-slim AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm i
 
 COPY . .
 RUN npm run build
 
 # Stage 2: Run
-FROM node:20-alpine
+FROM node:lts-trixie-slim
 
 WORKDIR /app
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/build ./build
 
-RUN npm ci --omit=dev
+RUN npm i --omit=dev
 
 EXPOSE 3000
 CMD ["node", "build"]

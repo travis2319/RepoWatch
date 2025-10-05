@@ -1,36 +1,17 @@
 services:
-  frontend:
-    build:
-      context: ./FRONTEND
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      NODE_ENV: production
-      # Example: tell frontend where backend is
-      VITE_API_URL: http://backend:4000
-    restart: unless-stopped
-    depends_on:
-      - backend
-    networks:
-      - app-network
-
   backend:
     build:
       context: ./BACKEND
       dockerfile: Dockerfile
+    container_name: repo-watch-backend
     ports:
       - "4000:4000"
+    env_file:
+      - .env       # your GITHUB_TOKEN and other env vars
     environment:
-      APP_ENV: ${APP_ENV}
-      APP_PORT: ${APP_PORT}
-      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      - APP_ENV=development
+      - APP_PORT=4000
     volumes:
-      - ./BACKEND:/app   # Mount local source for live edits
+      - ./BACKEND:/app  # optional: for live edits in development
     command: go run cmd/main.go
-    networks:
-      - app-network
-
-networks:
-  app-network:
-    driver: bridge
+    restart: unless-stopped

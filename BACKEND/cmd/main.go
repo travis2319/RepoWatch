@@ -58,11 +58,11 @@ func main() {
 	api.SetupRoutes(app, checkerService)
 
 	// 🔥 Serve static frontend build
-	app.Static("/", "../FRONTEND/build")
+	app.Static("/", "./build")
 
 	// SPA fallback (to support client-side routing)
 	app.All("*", func(c *fiber.Ctx) error {
-		return c.SendFile("../FRONTEND/build/index.html")
+		return c.SendFile("./build/index.html")
 	})
 
 	port := os.Getenv("PORT")

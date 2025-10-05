@@ -4,10 +4,8 @@ services:
     container_name: fiber_app
     ports:
       - "4000:4000"
-    environment:
-      - APP_ENV=development
-      - APP_PORT=4000
-      - GITHUB_TOKEN="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"
+    env_file:
+      - .env
     volumes:
       - .:/app   # Mount local source for live edits
     command: go run cmd/main.go

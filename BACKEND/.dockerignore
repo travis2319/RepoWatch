@@ -7,6 +7,5 @@ npm-debug.log
 .gitignore
 README.md
 .svelte-kit
-build
 .vercel
 .netlify
