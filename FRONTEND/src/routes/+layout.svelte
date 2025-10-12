@@ -2,27 +2,20 @@
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { onMount } from 'svelte';
+	import { githubUser, ownerName } from '$lib/store'; // ✅ import store
 
 	let { children } = $props();
 	let sidebarOpen = $state(false);
-	let githubUser = $state('');
-	let ownerName = $state('');
+	// let githubUser = $state('');
+	// let ownerName = $state('');
+	let saveMessage = $state(''); // to show save confirmation
 
 	// Load saved values from localStorage on mount
 	onMount(() => {
 		const savedUser = localStorage.getItem('githubUser');
 		const savedOwner = localStorage.getItem('ownerName');
-		if (savedUser) githubUser = savedUser;
-		if (savedOwner) ownerName = savedOwner;
-	});
-
-	// Save values to localStorage when they change
-	$effect(() => {
-		if (githubUser) localStorage.setItem('githubUser', githubUser);
-	});
-
-	$effect(() => {
-		if (ownerName) localStorage.setItem('ownerName', ownerName);
+		if (savedUser) githubUser.set(savedUser);
+		if (savedOwner) ownerName.set(savedOwner);
 	});
 
 	function toggleSidebar() {
@@ -43,19 +36,29 @@
 
 	function handleUserInput(event: Event) {
 		const target = event.target as HTMLInputElement;
-		githubUser = extractUsername(target.value);
+		githubUser.set(extractUsername(target.value));
 	}
 
 	function handleOwnerInput(event: Event) {
 		const target = event.target as HTMLInputElement;
-		ownerName = extractUsername(target.value);
+		ownerName.set(extractUsername(target.value));
+	}
+
+	function saveToLocalStorage() {
+		localStorage.setItem('githubUser', $githubUser);
+		localStorage.setItem('ownerName', $ownerName);
+		saveMessage = '✅ Settings saved successfully!';
+		setTimeout(() => (saveMessage = ''), 3000);
 	}
 </script>
 
 export const prerender = true;
+
 <svelte:head>
 	<link rel="icon" href={favicon} />
-</svelte:head><!-- Sidebar overlay -->
+</svelte:head>
+
+<!-- Sidebar overlay -->
 {#if sidebarOpen}
 	<div
 		class="fixed inset-0 z-40 bg-black bg-opacity-50 md:hidden"
@@ -102,8 +105,11 @@ export const prerender = true;
 					id="githubUser"
 					type="text"
 					placeholder="Enter username or GitHub URL"
-					value={githubUser}
-					oninput={handleUserInput}
+					bind:value={$githubUser}
+					oninput={(event) => {
+						const input = event.target as HTMLInputElement | null;
+						if (input) githubUser.set(extractUsername(input.value));
+					}}
 					class="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
 				/>
 				<p class="mt-1 text-xs text-gray-400">
@@ -119,8 +125,11 @@ export const prerender = true;
 					id="ownerName"
 					type="text"
 					placeholder="Enter owner username or GitHub URL"
-					value={ownerName}
-					oninput={handleOwnerInput}
+					bind:value={$ownerName}
+					oninput={(event) => {
+						const input = event.target as HTMLInputElement | null;
+						if (input) ownerName.set(extractUsername(input.value));
+					}}
 					class="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
 				/>
 				<p class="mt-1 text-xs text-gray-400">
@@ -128,7 +137,16 @@ export const prerender = true;
 				</p>
 			</div>
 
-			{#if githubUser && ownerName}
+			<!-- Save button -->
+			<button
+				onclick={saveToLocalStorage}
+				class="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+			>
+				Save
+			</button>
+
+			<!-- Save confirmation -->
+			{#if saveMessage}
 				<div class="rounded-lg border border-green-700 bg-green-900/30 p-3">
 					<div class="flex items-center">
 						<svg class="mr-2 h-4 w-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
@@ -138,7 +156,7 @@ export const prerender = true;
 								clip-rule="evenodd"
 							/>
 						</svg>
-						<span class="text-sm text-green-300">Configuration saved</span>
+						<span class="text-sm text-green-300">{saveMessage}</span>
 					</div>
 				</div>
 			{/if}

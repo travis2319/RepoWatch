@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/joho/godotenv"
 	"github.com/travis2319/RepoWatch/internal/api"
 	"github.com/travis2319/RepoWatch/internal/github"
 	"github.com/travis2319/RepoWatch/internal/repository"
@@ -14,7 +15,10 @@ import (
 
 func main() {
 	// Optional: load .env if needed
-	// _ = godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("⚠️  Warning: .env file not found or cannot be read")
+	}
 
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
