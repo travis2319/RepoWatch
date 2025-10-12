@@ -78,7 +78,7 @@ export const prerender = true;
 	<div class="flex h-full flex-col">
 		<!-- Header -->
 		<div class="flex items-center justify-between border-b border-gray-700 p-4">
-			<h1 class="text-xl font-semibold text-white">GitHub Repo Checker</h1>
+			<h1 class="text-xl font-semibold text-white">REPO WATCH</h1>
 			<button
 				onclick={closeSidebar}
 				class="text-gray-400 transition-colors hover:text-white md:hidden"
