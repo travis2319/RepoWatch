@@ -1,19 +1,39 @@
-FROM golang:1.24-alpine
+# ---------- Builder ----------
+FROM golang:1.24-alpine AS builder
 
-RUN apk add --no-cache git build-base
+# sqlite needs CGO
+RUN apk add --no-cache git gcc musl-dev build-base
 
 WORKDIR /app
 
+# Cache Go deps
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY cmd/ ./cmd/
-COPY db/ ./db/
-COPY internal/ ./internal/
+# Copy source
+COPY . .
 
-# In BACKEND/Dockerfile, after copying backend source
-COPY build/ ./build/
+# Enable CGO for sqlite
+ENV CGO_ENABLED=1
+
+# Build binary
+RUN go build -o app ./cmd/main.go
 
 
-# The frontend build will be mounted at runtime.
-CMD ["go", "run", "cmd/main.go"]
+# ---------- Runtime ----------
+FROM alpine:latest
+
+# runtime libs for sqlite
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+# Copy binary
+COPY --from=builder /app/app .
+
+# optional if you use sqlite db file
+COPY --from=builder /app/db ./db
+
+EXPOSE 4000
+
+CMD ["./app"]

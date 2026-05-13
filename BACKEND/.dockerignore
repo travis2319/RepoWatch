@@ -1,11 +1,30 @@
-node_modules
-npm-debug.log
-.env
-.env.local
-.env.production
+# git
 .git
 .gitignore
-README.md
+
+# node
+node_modules
+npm-debug.log
+
+# frontend build
 .svelte-kit
 .vercel
 .netlify
+
+# docs
+README.md
+
+# local env files
+.env
+.env.local
+.env.production
+
+# OS files
+.DS_Store
+
+# Go build
+bin/
+dist/
+
+# Docker
+docker-compose.yml

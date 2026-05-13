@@ -1,11 +1,15 @@
 services:
   fiber_app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+
     container_name: fiber_app
+
     ports:
       - "4000:4000"
+
     env_file:
       - .env
-    volumes:
-      - .:/app   # Mount local source for live edits
-    command: go run cmd/main.go
+
+    restart: unless-stopped

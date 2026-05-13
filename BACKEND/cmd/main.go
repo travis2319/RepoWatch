@@ -5,8 +5,9 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
+	fiberLogger "github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
+
 	"github.com/travis2319/RepoWatch/internal/api"
 	"github.com/travis2319/RepoWatch/internal/github"
 	"github.com/travis2319/RepoWatch/internal/repository"
@@ -14,66 +15,76 @@ import (
 )
 
 func main() {
-	// Optional: load .env if needed
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("⚠️  Warning: .env file not found or cannot be read")
+
+	// Load .env locally (optional in Docker)
+	if err := godotenv.Load(); err != nil {
+		log.Println("ℹ️ No local .env file found, using system environment variables")
 	}
 
+	// Validate GitHub token
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
-		log.Println("⚠️  Warning: GITHUB_TOKEN not set! API calls will fail.")
-	} else {
-		log.Println("✅ GITHUB_TOKEN is set.")
+		log.Fatal("❌ GITHUB_TOKEN is not set")
 	}
 
+	log.Println("✅ GITHUB_TOKEN loaded")
+
+	// App setup
 	app := fiber.New(fiber.Config{
 		AppName: "GitHub Collaborator Checker API",
+
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
+
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
 			}
+
 			return c.Status(code).JSON(fiber.Map{
-				"error":   err.Error(),
-				"message": "An error occurred processing your request",
+				"error": err.Error(),
 			})
 		},
 	})
 
 	// Middleware
-	app.Use(logger.New())
+	app.Use(fiberLogger.New())
 
-	// Initialize database
+	// Database
 	db := repository.InitDB("db/collabs.db")
 	defer db.Close()
 
-	// Initialize repositories
+	log.Println("✅ Database initialized")
+
+	// Repositories
 	repoRepo := repository.NewRepoRepository(db)
 	collabRepo := repository.NewCollaboratorRepository(db)
 
-	// Initialize GitHub client
+	// GitHub client
 	githubClient := github.NewClient()
 
-	// Initialize services
-	checkerService := services.NewCheckerService(repoRepo, collabRepo, githubClient)
+	// Services
+	checkerService := services.NewCheckerService(
+		repoRepo,
+		collabRepo,
+		githubClient,
+	)
 
-	// Setup API routes
+	// Routes
 	api.SetupRoutes(app, checkerService)
 
-	// 🔥 Serve static frontend build
-	app.Static("/", "./build")
+	// Optional frontend static hosting
+	// app.Static("/", "./build")
+	// app.All("*", func(c *fiber.Ctx) error {
+	// 	return c.SendFile("./build/index.html")
+	// })
 
-	// SPA fallback (to support client-side routing)
-	app.All("*", func(c *fiber.Ctx) error {
-		return c.SendFile("./build/index.html")
-	})
-
-	port := os.Getenv("PORT")
+	// Port
+	port := os.Getenv("APP_PORT")
 	if port == "" {
 		port = "4000"
 	}
 
-	log.Printf("🚀 Server running at http://localhost:%s", port)
+	log.Printf("🚀 Server running on port %s", port)
+
 	log.Fatal(app.Listen(":" + port))
 }

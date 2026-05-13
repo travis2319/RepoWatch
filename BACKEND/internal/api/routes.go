@@ -106,4 +106,16 @@ func SetupRoutes(app *fiber.App, checkerService services.CheckerServiceInterface
 
 		return c.JSON(result)
 	})
+
+	api.Get("/repos", func(c *fiber.Ctx) error {
+    owner := c.Query("owner")
+    if owner == "" {
+        return c.Status(400).JSON(fiber.Map{"error": "owner query param required"})
+    }
+    repos, err := checkerService.GetOwnerRepos(owner)
+    if err != nil {
+        return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+    }
+    return c.JSON(fiber.Map{"data": repos, "message": "repos fetched"})
+})
 }

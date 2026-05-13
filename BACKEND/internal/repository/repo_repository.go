@@ -26,9 +26,11 @@ func (r *repoRepository) GetByName(name, owner string) (*models.Repo, error) {
 }
 
 func (r *repoRepository) Create(repo *models.Repo) error {
-	_, err := r.db.Exec("INSERT INTO repos (name, owner, full_name) VALUES (?, ?, ?)",
-		repo.Name, repo.Owner, repo.FullName)
-	return err
+    _, err := r.db.Exec(
+        "INSERT INTO repos (name, owner, full_name) VALUES (?, ?, ?)",
+        repo.Name, repo.Owner, repo.FullName,
+    )
+    return err
 }
 
 func (r *repoRepository) GetAll() ([]*models.Repo, error) {

@@ -20,6 +20,7 @@ type CheckerService struct {
 type CheckerServiceInterface interface {
 	CheckCollaborators(owner, user string) ([]*models.CollaboratorResponse, error)
 	CheckSingleRepo(owner, repo, user string) (*models.SingleRepoResponse, error)
+	GetOwnerRepos(owner string) ([]map[string]interface{}, error)
 }
 
 func NewCheckerService(repoRepo repository.RepoRepository, collabRepo repository.CollaboratorRepository, githubClient github.Client) CheckerServiceInterface {
@@ -28,6 +29,14 @@ func NewCheckerService(repoRepo repository.RepoRepository, collabRepo repository
 		collabRepo:   collabRepo,
 		githubClient: githubClient,
 	}
+}
+
+func (s *CheckerService) GetOwnerRepos(owner string) ([]map[string]interface{}, error) {
+	repos, err := s.githubClient.GetRepos(owner)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repos for owner %s: %w", owner, err)
+	}
+	return repos, nil
 }
 
 func (s *CheckerService) CheckCollaborators(owner, user string) ([]*models.CollaboratorResponse, error) {
@@ -39,43 +48,22 @@ func (s *CheckerService) CheckCollaborators(owner, user string) ([]*models.Colla
 	var results []*models.CollaboratorResponse
 
 	for _, repo := range repos {
-		name := repo["name"].(string)
+		name, ok := repo["name"].(string)
+		if !ok || name == "" {
+			continue
+		}
 
-		// Check collaborator access
 		hasAccess, err := s.githubClient.CheckCollaborator(owner, name, user)
 		if err != nil {
 			log.Printf("Error checking collaborator %s for repo %s: %v", user, name, err)
-			hasAccess = false // default to false on error
+			hasAccess = false
 		}
-
-		// Get or create repo record
-		// repoModel, err := s.repoRepo.GetByName(name, owner)
-		// if err != nil {
-		// 	// Create new repo if not exists
-		// 	repoModel = &models.Repo{
-		// 		Name:     name,
-		// 		Owner:    owner,
-		// 		FullName: fmt.Sprintf("%s/%s", owner, name),
-		// 	}
-		// 	if createErr := s.repoRepo.Create(repoModel); createErr != nil {
-		// 		log.Printf("Error creating repo record: %v", createErr)
-		// 	}
-		// }
-
-		checkedAt := time.Now()
-
-		// Save/update collaborator record
-		// if repoModel.ID != 0 {
-		// 	if err := s.collabRepo.CreateOrUpdate(repoModel.ID, user, hasAccess, checkedAt); err != nil {
-		// 		log.Printf("Error saving collaborator record: %v", err)
-		// 	}
-		// }
 
 		results = append(results, &models.CollaboratorResponse{
 			Repo:      name,
 			User:      user,
 			HasAccess: hasAccess,
-			CheckedAt: checkedAt,
+			CheckedAt: time.Now(),
 		})
 	}
 
@@ -90,35 +78,12 @@ func (s *CheckerService) CheckSingleRepo(owner, repo, user string) (*models.Sing
 		return nil, fmt.Errorf("failed to check collaborator: %w", err)
 	}
 
-	// Get or create repo record
-	// repoModel, err := s.repoRepo.GetByName(repo, owner)
-	// if err != nil {
-	// 	// Create new repo if not exists
-	// 	repoModel = &models.Repo{
-	// 		Name:     repo,
-	// 		Owner:    owner,
-	// 		FullName: fmt.Sprintf("%s/%s", owner, repo),
-	// 	}
-	// 	if createErr := s.repoRepo.Create(repoModel); createErr != nil {
-	// 		log.Printf("Error creating repo record: %v", createErr)
-	// 	}
-	// }
-
-	checkedAt := time.Now()
-
-	// Save/update collaborator record
-	// if repoModel.ID != 0 {
-	// 	if err := s.collabRepo.CreateOrUpdate(repoModel.ID, user, hasAccess, checkedAt); err != nil {
-	// 		log.Printf("Error saving collaborator record: %v", err)
-	// 	}
-	// }
-
 	result := &models.SingleRepoResponse{
 		Repo:      repo,
 		Owner:     owner,
 		User:      user,
 		HasAccess: hasAccess,
-		CheckedAt: checkedAt,
+		CheckedAt: time.Now(),
 	}
 
 	log.Printf("Result: %+v", result)

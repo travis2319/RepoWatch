@@ -1,16 +1,16 @@
 CREATE TABLE IF NOT EXISTS repos (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
-    owner TEXT NOT NULL,
-    url TEXT NOT NULL,
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    name      TEXT NOT NULL,
+    owner     TEXT NOT NULL,
+    full_name TEXT NOT NULL,
     last_checked TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS collaborators (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    repo_id INTEGER,
-    username TEXT NOT NULL,
-    has_access BOOLEAN,
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    repo_id    INTEGER NOT NULL,
+    username   TEXT NOT NULL,
+    has_access BOOLEAN NOT NULL DEFAULT 0,
     checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(repo_id) REFERENCES repos(id)
 );
