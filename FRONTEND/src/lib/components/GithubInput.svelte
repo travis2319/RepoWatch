@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { writable } from 'svelte/store';
+  import type { Writable } from 'svelte/store';
 
   export let label: string;
-  import type { Writable } from 'svelte/store';
   export let store: Writable<string>;
   export let placeholder: string;
+  export let hint: string = '';
 
   function extractUsername(input: string): string {
     if (input.includes('github.com/')) {
@@ -21,13 +21,16 @@
 </script>
 
 <div>
-  <!-- svelte-ignore a11y_label_has_associated_control -->
-  <label class="mb-2 block text-sm font-medium text-gray-300">{label}</label>
+  <label for={label} class="mb-2 block text-sm font-medium text-gray-300">{label}</label>
   <input
+    id={label}
     type="text"
-    placeholder={placeholder}
+    {placeholder}
     bind:value={$store}
-    on:input={handleInput}
+    oninput={handleInput}
     class="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-white placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
   />
+  {#if hint}
+    <p class="mt-1 text-xs text-gray-400">{hint}</p>
+  {/if}
 </div>

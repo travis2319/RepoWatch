@@ -1,16 +1,13 @@
 services:
-  fiber_app:
+  frontend:
     build:
       context: .
       dockerfile: Dockerfile
 
-    container_name: repowatch-backend
+    container_name: repowatch-frontend
 
     ports:
-      - "4000:4000"
-
-    env_file:
-      - .env
+      - "3000:80"
 
     networks:
       - repowatch-net
@@ -19,4 +16,4 @@ services:
 
 networks:
   repowatch-net:
-    name: repowatch-net
+    external: true
