@@ -1,24 +1,41 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
-body {
-  @apply bg-gray-100 text-gray-900;
+:root {
+  --clr-bg:        #0d1117;
+  --clr-surface:   #161b22;
+  --clr-surface2:  #1c2433;
+  --clr-border:    #2d3748;
+  --clr-accent:    #00d4aa;
+  --clr-accent-dk: #00a880;
+  --clr-text:      #e2e8f0;
+  --clr-muted:     #7a8fa6;
+  --clr-danger:    #fc8181;
+  --clr-warn:      #f6ad55;
+  --clr-success:   #68d391;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+body {
+  background-color: var(--clr-bg);
+  color: var(--clr-text);
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+}
 
-/* Smooth colour transitions everywhere */
+.bg-base    { background-color: var(--clr-bg); }
+.bg-surface { background-color: var(--clr-surface); }
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--clr-bg); }
+::-webkit-scrollbar-thumb { background: var(--clr-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--clr-muted); }
+
 * {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-property: color, background-color, border-color;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
 
-/* Loading spinner */
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

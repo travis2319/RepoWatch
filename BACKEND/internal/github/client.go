@@ -146,3 +146,38 @@ func (c *client) CheckCollaborator(owner, repo, user string) (bool, error) {
 	body, _ := io.ReadAll(resp.Body)
 	return false, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
 }
+
+func (c *client) ValidateToken() (map[string]interface{}, http.Header, error) {
+	url := "https://api.github.com/user"
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, resp.Header, fmt.Errorf("github api returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var user map[string]interface{}
+	if err := json.Unmarshal(body, &user); err != nil {
+		return nil, resp.Header, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return user, resp.Header, nil
+}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"time"
-
 	"github.com/travis2319/RepoWatch/internal/github"
 	"github.com/travis2319/RepoWatch/internal/models"
 	"github.com/travis2319/RepoWatch/internal/repository"
@@ -17,10 +16,18 @@ type CheckerService struct {
 	githubClient github.Client
 }
 
+type GitHubValidationResponse struct {
+	Valid      bool                   `json:"valid"`
+	User       map[string]interface{} `json:"user,omitempty"`
+	RateLimit  map[string]interface{} `json:"rate_limit,omitempty"`
+	TokenExpiry string                `json:"token_expiry,omitempty"`
+}
+
 type CheckerServiceInterface interface {
 	CheckCollaborators(owner, user string) ([]*models.CollaboratorResponse, error)
 	CheckSingleRepo(owner, repo, user string) (*models.SingleRepoResponse, error)
 	GetOwnerRepos(owner string) ([]map[string]interface{}, error)
+	ValidateGitHubToken() (*GitHubValidationResponse, error)
 }
 
 func NewCheckerService(repoRepo repository.RepoRepository, collabRepo repository.CollaboratorRepository, githubClient github.Client) CheckerServiceInterface {
@@ -88,4 +95,34 @@ func (s *CheckerService) CheckSingleRepo(owner, repo, user string) (*models.Sing
 
 	log.Printf("Result: %+v", result)
 	return result, nil
+}
+
+func (s *CheckerService) ValidateGitHubToken() (*GitHubValidationResponse, error) {
+	user, headers, err := s.githubClient.ValidateToken()
+	if err != nil {
+		return &GitHubValidationResponse{
+			Valid: false,
+		}, err
+	}
+
+	response := &GitHubValidationResponse{
+		Valid: true,
+		User: map[string]interface{}{
+			"login":      user["login"],
+			"id":         user["id"],
+			"name":       user["name"],
+			"avatar_url": user["avatar_url"],
+			"html_url":   user["html_url"],
+		},
+		RateLimit: map[string]interface{}{
+			"limit":     headers.Get("X-RateLimit-Limit"),
+			"remaining": headers.Get("X-RateLimit-Remaining"),
+			"used":      headers.Get("X-RateLimit-Used"),
+			"reset":     headers.Get("X-RateLimit-Reset"),
+			"resource":  headers.Get("X-RateLimit-Resource"),
+		},
+		TokenExpiry: headers.Get("github-authentication-token-expiration"),
+	}
+
+	return response, nil
 }

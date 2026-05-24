@@ -4,7 +4,7 @@
 
   const API = '/api/v1';
   const langColors: Record<string, string> = {
-    TypeScript: '#3178c6', JavaScript: '#f7df1e', Go: '#00add8',
+    TypeScript: '#3178c6', JavaScript: '#f7df1e', Go: '#00d4aa',
     Python: '#3572a5', Dart: '#00add8', Java: '#b07219'
   };
 
@@ -22,15 +22,29 @@
   let userLoading = $state(false);
   let userSearched = $state(false);
 
-  interface TokenStatus {
-    expiresAt?: string;
-    daysRemaining?: number;
-    scopes?: string[];
-    rateLimit?: { remaining: number; limit: number };
+  interface GithubUser {
+    login: string;
+    name: string;
+    avatar_url: string;
+    html_url: string;
+    id: number;
   }
-  let token = $state<TokenStatus | null>(null);
-  let tokenLoading = $state(false);
-  let tokenError = $state('');
+  interface RateLimit {
+    limit: string;
+    remaining: string;
+    used: string;
+    reset: string;
+    resource: string;
+  }
+  interface ValidateData {
+    valid: boolean;
+    user: GithubUser;
+    rate_limit: RateLimit;
+    token_expiry: string;
+  }
+  let validate = $state<ValidateData | null>(null);
+  let validateLoading = $state(false);
+  let validateError = $state('');
 
   onMount(() => {
     const saved = localStorage.getItem('ownerName');
@@ -44,7 +58,7 @@
   async function openPanel(panel: Panel) {
     activePanel = panel;
     if (panel === 'repos') await loadRepos();
-    if (panel === 'token') await loadToken();
+    if (panel === 'token') await loadValidate();
   }
 
   async function loadRepos() {
@@ -83,31 +97,41 @@
     }
   }
 
-  async function loadToken() {
-    token = null; tokenError = '';
-    tokenLoading = true;
+  async function loadValidate() {
+    validate = null; validateError = '';
+    validateLoading = true;
     try {
-      const r = await fetch(`${API}/token-status`);
+      const r = await fetch(`${API}/github/validate`);
       if (!r.ok) throw new Error(`${r.status}`);
       const d = await r.json();
-      token = d.data ?? d;
+      validate = d.data ?? d;
     } catch (e) {
-      tokenError = 'Could not fetch token info';
+      validateError = 'Could not reach API';
     } finally {
-      tokenLoading = false;
+      validateLoading = false;
     }
   }
 
-  function formatDate(iso?: string) {
+  function formatExpiry(iso?: string) {
     if (!iso) return 'Never';
-    return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
-  function tokenBadge(days?: number): { label: string; cls: string; msg: string } {
-    if (days === undefined) return { label: 'No expiry', cls: 'badge-success', msg: 'Token does not expire' };
-    if (days <= 0) return { label: 'Expired', cls: 'badge-danger', msg: 'Token has expired and needs renewal' };
-    if (days <= 7) return { label: 'Expiring soon', cls: 'badge-warn', msg: `Renew within ${days} day(s)` };
-    return { label: 'Active', cls: 'badge-success', msg: 'Token is valid' };
+  function daysUntil(iso?: string): number | null {
+    if (!iso) return null;
+    const diff = new Date(iso).getTime() - Date.now();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
+
+  function expiryBadge(days: number | null): { label: string; cls: string } {
+    if (days === null) return { label: 'No expiry', cls: 'badge-success' };
+    if (days <= 0)    return { label: 'Expired',       cls: 'badge-danger' };
+    if (days <= 7)    return { label: `${days}d left`,  cls: 'badge-warn' };
+    return { label: `${days}d left`, cls: 'badge-success' };
+  }
+
+  function resetTime(unixStr: string) {
+    return new Date(parseInt(unixStr) * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   }
 </script>
 
@@ -148,10 +172,11 @@
     <button class="card {activePanel === 'token' ? 'active' : ''}" onclick={() => openPanel('token')}>
       <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
       <div class="card-title">Token status</div>
-      <div class="card-sub">Expiry &amp; scope details</div>
+      <div class="card-sub">Validate &amp; inspect GitHub token</div>
     </button>
   </div>
 
+  <!-- Repos panel -->
   {#if activePanel === 'repos'}
     <div class="panel">
       <div class="panel-header">
@@ -197,6 +222,7 @@
     </div>
   {/if}
 
+  <!-- User panel -->
   {#if activePanel === 'user'}
     <div class="panel">
       <div class="panel-header">
@@ -227,7 +253,7 @@
                 <div class="repo-item">
                   <div class="repo-left">
                     <div class="repo-name">
-                      <svg class="icon icon-sm" style="color:#16a34a" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                      <svg class="icon icon-sm" style="color:var(--clr-accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
                       {repo.repo}
                     </div>
                     {#if repo.language}
@@ -247,45 +273,71 @@
     </div>
   {/if}
 
+  <!-- Token / validate panel -->
   {#if activePanel === 'token'}
     <div class="panel">
       <div class="panel-header">
-        <h2 class="panel-title">Token status</h2>
+        <h2 class="panel-title">
+          Token status
+          {#if validate?.valid}
+            <span class="badge badge-success">valid</span>
+          {/if}
+        </h2>
         <button class="close-btn" onclick={() => activePanel = null} aria-label="Close">✕</button>
       </div>
       <div class="panel-body">
-        {#if tokenLoading}
-          <div class="loading-row"><span class="spinner"></span> Checking token…</div>
-        {:else if tokenError || !token}
-          <div class="empty">{tokenError || 'No token data available'}</div>
+        {#if validateLoading}
+          <div class="loading-row"><span class="spinner"></span> Validating token…</div>
+        {:else if validateError || !validate}
+          <div class="empty">{validateError || 'No data available'}</div>
         {:else}
-          {@const tb = tokenBadge(token.daysRemaining)}
-          <div class="token-status-row">
-            <span class="badge {tb.cls}">{tb.label}</span>
-            <span class="token-msg">{tb.msg}</span>
+          <!-- User identity row -->
+          <div class="user-identity">
+            <img class="avatar" src={validate.user.avatar_url} alt={validate.user.login} />
+            <div class="user-info">
+              <div class="user-name">{validate.user.name}</div>
+              <a class="user-login" href={validate.user.html_url} target="_blank" rel="noopener">
+                @{validate.user.login}
+                <svg style="width:12px;height:12px;vertical-align:-1px;margin-left:3px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+              </a>
+            </div>
+            <div class="user-id">ID #{validate.user.id}</div>
           </div>
-          <div class="token-grid">
-            <div class="token-stat">
-              <div class="stat-label">Expires at</div>
-              <div class="stat-value">{formatDate(token.expiresAt)}</div>
-            </div>
-            <div class="token-stat">
-              <div class="stat-label">Days remaining</div>
-              <div class="stat-value">{token.daysRemaining ?? '∞'}</div>
-            </div>
-            <div class="token-stat">
-              <div class="stat-label">Scopes</div>
-              <div class="stat-value scopes">{token.scopes?.join(', ') ?? '—'}</div>
-            </div>
-            <div class="token-stat">
-              <div class="stat-label">Rate limit</div>
-              <div class="stat-value">
-                {#if token.rateLimit}
-                  {token.rateLimit.remaining} / {token.rateLimit.limit}
-                {:else}—{/if}
+
+          {#if validate}
+            {@const days = daysUntil(validate.token_expiry)}
+            {@const eb = expiryBadge(days)}
+            {@const rlUsed = parseInt(validate.rate_limit.used)}
+            {@const rlLimit = parseInt(validate.rate_limit.limit)}
+            {@const rlRemaining = parseInt(validate.rate_limit.remaining)}
+            {@const rlPct = Math.round((rlRemaining / rlLimit) * 100)}
+            <div class="token-grid">
+              <!-- Token expiry -->
+              <div class="token-stat">
+                <div class="stat-label">Token expires</div>
+                <div class="stat-value-row">
+                  <div class="stat-value">{formatExpiry(validate.token_expiry)}</div>
+                  <span class="badge {eb.cls}">{eb.label}</span>
+                </div>
+              </div>
+
+              <!-- Rate limit -->
+              <div class="token-stat">
+                <div class="stat-label">API rate limit — resets {resetTime(validate.rate_limit.reset)}</div>
+                <div class="stat-value-row">
+                  <div class="stat-value">{rlRemaining} <span class="stat-of">/ {rlLimit}</span></div>
+                  <span class="badge {rlPct > 50 ? 'badge-success' : rlPct > 20 ? 'badge-warn' : 'badge-danger'}">{rlPct}% left</span>
+                </div>
+                <div class="rate-bar-track">
+                  <div
+                    class="rate-bar-fill"
+                    style="width:{rlPct}%; background:{rlPct > 50 ? 'var(--clr-accent)' : rlPct > 20 ? 'var(--clr-warn)' : 'var(--clr-danger)'}"
+                  ></div>
+                </div>
+                <div class="rate-sub">{rlUsed} requests used this window</div>
               </div>
             </div>
-          </div>
+          {/if}
         {/if}
       </div>
     </div>
@@ -295,51 +347,117 @@
 
 <style>
   .dashboard { max-width: 860px; }
-  .welcome { display: flex; align-items: center; gap: 12px; margin-bottom: 2rem; flex-wrap: wrap; }
-  .welcome-label { font-size: 22px; font-weight: 500; }
-  .owner-wrap { display: flex; align-items: center; gap: 8px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 10px; padding: 6px 12px; }
-  .owner-input { background: transparent; border: none; outline: none; font-size: 22px; font-weight: 500; color: inherit; font-family: inherit; width: 200px; }
-  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 2rem; }
-  .card { background: white; border: 0.5px solid #e5e7eb; border-radius: 12px; padding: 1.5rem 1.25rem; cursor: pointer; text-align: left; transition: border-color .15s, box-shadow .15s; }
-  .card:hover { border-color: #d1d5db; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-  .card.active { border: 2px solid #3b82f6; }
-  .card-icon { width: 32px; height: 32px; color: #6b7280; margin-bottom: .75rem; }
-  .card-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
-  .card-sub { font-size: 13px; color: #6b7280; }
-  .panel { background: white; border: 0.5px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
-  .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 0.5px solid #e5e7eb; }
-  .panel-title { font-size: 16px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+
+  .welcome { display: flex; align-items: center; gap: 12px; margin-bottom: 2.5rem; flex-wrap: wrap; }
+  .welcome-label { font-size: 22px; font-weight: 500; color: var(--clr-muted); }
+  .owner-wrap {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--clr-surface);
+    border: 1px solid var(--clr-border);
+    border-radius: 10px; padding: 6px 12px;
+  }
+  .owner-wrap:focus-within { border-color: var(--clr-accent); }
+  .owner-input {
+    background: transparent; border: none; outline: none;
+    font-size: 22px; font-weight: 500;
+    color: var(--clr-accent);
+    font-family: inherit; width: 200px;
+  }
+  .owner-input::placeholder { color: var(--clr-muted); }
+
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 2rem; }
+  .card {
+    background: var(--clr-surface); border: 1px solid var(--clr-border);
+    border-radius: 12px; padding: 1.5rem 1.25rem;
+    cursor: pointer; text-align: left;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .card:hover { border-color: var(--clr-accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--clr-accent) 20%, transparent); }
+  .card.active { border: 2px solid var(--clr-accent); }
+  .card-icon { width: 30px; height: 30px; color: var(--clr-accent); margin-bottom: .75rem; }
+  .card-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; color: var(--clr-text); }
+  .card-sub { font-size: 12px; color: var(--clr-muted); }
+
+  .panel { background: var(--clr-surface); border: 1px solid var(--clr-border); border-radius: 12px; overflow: hidden; }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--clr-border);
+    background: var(--clr-surface2);
+  }
+  .panel-title { font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 10px; color: var(--clr-text); }
   .panel-body { padding: 1.25rem; }
-  .close-btn { background: none; border: none; cursor: pointer; font-size: 16px; color: #6b7280; padding: 4px 8px; border-radius: 6px; }
-  .close-btn:hover { background: #f3f4f6; }
+  .close-btn { background: none; border: none; cursor: pointer; font-size: 16px; color: var(--clr-muted); padding: 4px 8px; border-radius: 6px; }
+  .close-btn:hover { background: var(--clr-surface2); color: var(--clr-text); }
+
   .search-row { display: flex; gap: 8px; margin-bottom: 1rem; }
-  .search-row input { flex: 1; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; font-family: inherit; }
-  .search-row input:focus { border-color: #3b82f6; }
-  .search-row button { background: #1d4ed8; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; cursor: pointer; white-space: nowrap; font-family: inherit; }
-  .search-row button:disabled { opacity: .5; cursor: not-allowed; }
-  .repo-list { display: flex; flex-direction: column; gap: 8px; }
-  .repo-item { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1rem; background: #f9fafb; border-radius: 8px; }
+  .search-row input {
+    flex: 1; background: var(--clr-bg); border: 1px solid var(--clr-border);
+    border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none;
+    font-family: inherit; color: var(--clr-text);
+  }
+  .search-row input::placeholder { color: var(--clr-muted); }
+  .search-row input:focus { border-color: var(--clr-accent); }
+  .search-row button {
+    background: var(--clr-accent); color: #0d1117; border: none; border-radius: 8px;
+    padding: 8px 16px; font-size: 14px; cursor: pointer; white-space: nowrap;
+    font-family: inherit; font-weight: 500;
+  }
+  .search-row button:hover { background: var(--clr-accent-dk); }
+  .search-row button:disabled { opacity: .4; cursor: not-allowed; }
+
+  .repo-list { display: flex; flex-direction: column; gap: 6px; }
+  .repo-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .7rem 1rem; background: var(--clr-surface2);
+    border: 1px solid var(--clr-border); border-radius: 8px;
+  }
   .repo-left { display: flex; flex-direction: column; gap: 3px; }
-  .repo-name { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; }
-  .repo-meta { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #6b7280; }
+  .repo-name { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--clr-text); }
+  .repo-meta { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--clr-muted); }
   .lang-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; font-weight: 500; }
-  .badge-info { background: #dbeafe; color: #1e40af; }
-  .badge-success { background: #dcfce7; color: #166534; }
-  .badge-warn { background: #fef9c3; color: #854d0e; }
-  .badge-danger { background: #fee2e2; color: #991b1b; }
-  .token-status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
-  .token-msg { font-size: 14px; color: #6b7280; }
-  .token-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .token-stat { background: #f9fafb; border-radius: 8px; padding: 1rem; }
-  .stat-label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
-  .stat-value { font-size: 18px; font-weight: 500; }
-  .stat-value.scopes { font-size: 13px; line-height: 1.6; }
+
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 5px; font-weight: 500; }
+  .badge-info    { background: #0e2a4a; color: #60a5fa; border: 1px solid #1e3a5f; }
+  .badge-success { background: #052e16; color: var(--clr-accent); border: 1px solid #064e32; }
+  .badge-warn    { background: #2d1a00; color: var(--clr-warn);   border: 1px solid #4a2f00; }
+  .badge-danger  { background: #2d0a0a; color: var(--clr-danger); border: 1px solid #4a1515; }
+
+  /* User identity */
+  .user-identity {
+    display: flex; align-items: center; gap: 14px;
+    padding: 1rem; margin-bottom: 1.25rem;
+    background: var(--clr-surface2); border: 1px solid var(--clr-border);
+    border-radius: 10px;
+  }
+  .avatar { width: 52px; height: 52px; border-radius: 50%; border: 2px solid var(--clr-border); flex-shrink: 0; }
+  .user-info { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .user-name { font-size: 16px; font-weight: 500; color: var(--clr-text); }
+  .user-login { font-size: 13px; color: var(--clr-accent); text-decoration: none; }
+  .user-login:hover { text-decoration: underline; }
+  .user-id { font-size: 11px; color: var(--clr-muted); white-space: nowrap; }
+
+  /* Token grid */
+  .token-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .token-stat { background: var(--clr-surface2); border: 1px solid var(--clr-border); border-radius: 8px; padding: 1rem; }
+  .stat-label { font-size: 11px; color: var(--clr-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
+  .stat-value-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .stat-value { font-size: 15px; font-weight: 500; color: var(--clr-text); }
+  .stat-of { font-size: 12px; color: var(--clr-muted); font-weight: 400; }
+
+  /* Rate limit bar */
+  .rate-bar-track { height: 4px; background: var(--clr-border); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
+  .rate-bar-fill { height: 100%; border-radius: 2px; transition: width .4s ease; }
+  .rate-sub { font-size: 11px; color: var(--clr-muted); }
+
   .icon { width: 20px; height: 20px; flex-shrink: 0; }
   .icon-sm { width: 15px; height: 15px; }
-  .muted { color: #9ca3af; }
-  .loading-row { color: #6b7280; font-size: 14px; display: flex; align-items: center; gap: 8px; padding: 1rem 0; }
-  .empty { text-align: center; padding: 2rem; color: #9ca3af; font-size: 14px; }
-  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+  .muted { color: var(--clr-muted); }
+  .loading-row { color: var(--clr-muted); font-size: 14px; display: flex; align-items: center; gap: 8px; padding: 1rem 0; }
+  .empty { text-align: center; padding: 2rem; color: var(--clr-muted); font-size: 13px; }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid var(--clr-border); border-top-color: var(--clr-accent);
+    border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0;
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>

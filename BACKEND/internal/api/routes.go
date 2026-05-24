@@ -118,4 +118,19 @@ func SetupRoutes(app *fiber.App, checkerService services.CheckerServiceInterface
 		}
 		return c.JSON(fiber.Map{"data": repos, "message": "repos fetched"})
 	})
+
+	api.Get("/github/validate", func(c *fiber.Ctx) error {
+		result, err := checkerService.ValidateGitHubToken()
+		if err != nil {
+			return c.Status(401).JSON(fiber.Map{
+				"data":  result,
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(fiber.Map{
+			"data":    result,
+			"message": "github token validated successfully",
+		})
+	})
 }
