@@ -133,4 +133,56 @@ func SetupRoutes(app *fiber.App, checkerService services.CheckerServiceInterface
 			"message": "github token validated successfully",
 		})
 	})
+
+	api.Post("/repos/load", func(c *fiber.Ctx) error {
+		type LoadReposRequest struct {
+			Owner string `json:"owner"`
+		}
+		var req LoadReposRequest
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid JSON format"})
+		}
+		if req.Owner == "" {
+			return c.Status(400).JSON(fiber.Map{"error": "owner is required"})
+		}
+
+		repos, err := checkerService.LoadRepos(req.Owner)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		return c.JSON(fiber.Map{"data": repos, "message": "repos loaded and saved"})
+	})
+
+	api.Post("/collaborators/load", func(c *fiber.Ctx) error {
+		type LoadCollabsRequest struct {
+			Owner string `json:"owner"`
+			Repo  string `json:"repo"`
+		}
+		var req LoadCollabsRequest
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid JSON format"})
+		}
+		if req.Owner == "" || req.Repo == "" {
+			return c.Status(400).JSON(fiber.Map{"error": "owner and repo are required"})
+		}
+
+		collabs, err := checkerService.LoadCollaborators(req.Owner, req.Repo)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		return c.JSON(fiber.Map{"data": collabs, "message": "collaborators loaded and saved"})
+	})
+
+	api.Get("/export", func(c *fiber.Ctx) error {
+		buf, err := checkerService.ExportToExcel()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+
+		c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+		c.Set("Content-Disposition", "attachment; filename=repowatch_export.xlsx")
+		return c.Send(buf.Bytes())
+	})
 }

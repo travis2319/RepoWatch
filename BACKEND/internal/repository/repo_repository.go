@@ -16,8 +16,8 @@ func NewRepoRepository(db *sql.DB) RepoRepository {
 
 func (r *repoRepository) GetByName(name, owner string) (*models.Repo, error) {
 	var repo models.Repo
-	err := r.db.QueryRow("SELECT id, name, owner, full_name FROM repos WHERE name = ? AND owner = ?", name, owner).
-		Scan(&repo.ID, &repo.Name, &repo.Owner, &repo.FullName)
+	err := r.db.QueryRow("SELECT id, name, owner, full_name, url FROM repos WHERE name = ? AND owner = ?", name, owner).
+		Scan(&repo.ID, &repo.Name, &repo.Owner, &repo.FullName, &repo.URL)
 
 	if err != nil {
 		return nil, err
@@ -26,15 +26,15 @@ func (r *repoRepository) GetByName(name, owner string) (*models.Repo, error) {
 }
 
 func (r *repoRepository) Create(repo *models.Repo) error {
-    _, err := r.db.Exec(
-        "INSERT INTO repos (name, owner, full_name) VALUES (?, ?, ?)",
-        repo.Name, repo.Owner, repo.FullName,
-    )
-    return err
+	_, err := r.db.Exec(
+		"INSERT INTO repos (name, owner, full_name, url) VALUES (?, ?, ?, ?)",
+		repo.Name, repo.Owner, repo.FullName, repo.URL,
+	)
+	return err
 }
 
 func (r *repoRepository) GetAll() ([]*models.Repo, error) {
-	rows, err := r.db.Query("SELECT id, name, owner, full_name FROM repos")
+	rows, err := r.db.Query("SELECT id, name, owner, full_name, url FROM repos")
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (r *repoRepository) GetAll() ([]*models.Repo, error) {
 	var repos []*models.Repo
 	for rows.Next() {
 		var repo models.Repo
-		err := rows.Scan(&repo.ID, &repo.Name, &repo.Owner, &repo.FullName)
+		err := rows.Scan(&repo.ID, &repo.Name, &repo.Owner, &repo.FullName, &repo.URL)
 		if err != nil {
 			return nil, err
 		}

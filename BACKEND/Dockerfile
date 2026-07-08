@@ -1,16 +1,16 @@
 # ---------- Deps ----------
-FROM golang:1.24-alpine AS deps
+FROM golang:1.25-alpine AS deps
 
 RUN apk add --no-cache git
 
 WORKDIR /app
 
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
 
 # ---------- Builder ----------
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache gcc musl-dev build-base
 

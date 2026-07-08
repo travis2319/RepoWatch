@@ -87,6 +87,34 @@ func (c *client) GetRepos(owner string) ([]map[string]interface{}, error) {
 	return repos, nil
 }
 
+func (c *client) GetCollaborators(owner, repo string) ([]map[string]interface{}, error) {
+	log.Printf("Getting collaborators for repo: %s/%s", owner, repo)
+	var collaborators []map[string]interface{}
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/collaborators", owner, repo)
+
+	resp, err := c.fetchRaw(url)
+	if err != nil {
+		log.Printf("Error fetching collaborators: %v", err)
+		return nil, fmt.Errorf("failed to fetch collaborators: %w", err)
+	}
+
+	var obj map[string]interface{}
+	if err := json.Unmarshal(resp, &obj); err == nil {
+		if msg, ok := obj["message"]; ok {
+			log.Printf("GitHub API returned error: %v", msg)
+			return nil, fmt.Errorf("GitHub API error: %v", msg)
+		}
+	}
+
+	if err := json.Unmarshal(resp, &collaborators); err != nil {
+		log.Printf("Error unmarshalling collaborators: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal collaborators: %w", err)
+	}
+
+	log.Printf("Fetched %d collaborators for %s/%s", len(collaborators), owner, repo)
+	return collaborators, nil
+}
+
 func (c *client) fetchRaw(url string) ([]byte, error) {
 	log.Printf("Fetching raw data from URL: %s", url)
 

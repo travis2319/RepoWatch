@@ -8,6 +8,7 @@ type Repo struct {
 	Name     string `json:"name" db:"name"`
 	Owner    string `json:"owner" db:"owner"`
 	FullName string `json:"full_name" db:"full_name"`
+	URL      string `json:"url" db:"url"`
 }
 
 type Collaborator struct {
