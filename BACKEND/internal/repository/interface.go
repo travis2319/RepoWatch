@@ -10,6 +10,7 @@ type RepoRepository interface {
 	GetByName(name, owner string) (*models.Repo, error)
 	Create(repo *models.Repo) error
 	GetAll() ([]*models.Repo, error)
+	Upsert(repo *models.Repo) error
 }
 
 type CollaboratorRepository interface {

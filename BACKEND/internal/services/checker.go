@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"time"
+	"strings"
 	"github.com/travis2319/RepoWatch/internal/github"
 	"github.com/travis2319/RepoWatch/internal/models"
 	"github.com/travis2319/RepoWatch/internal/repository"
@@ -141,39 +142,96 @@ func (s *CheckerService) LoadRepos(owner string) ([]*models.Repo, error) {
 	}
 
 	var saved []*models.Repo
+
 	for _, r := range rawRepos {
-		name, _ := r["name"].(string)
-		fullName, _ := r["full_name"].(string)
-		htmlURL, _ := r["html_url"].(string)
-		if name == "" {
-			continue
-		}
-		if htmlURL == "" {
-			htmlURL = fmt.Sprintf("https://github.com/%s/%s", owner, name)
-		}
-
-		if existing, err := s.repoRepo.GetByName(name, owner); err == nil && existing != nil {
-			saved = append(saved, existing)
+		repo := mapRawRepoToModel(owner, r)
+		if repo.Name == "" {
 			continue
 		}
 
-		repo := &models.Repo{Name: name, Owner: owner, FullName: fullName, URL: htmlURL}
-		if err := s.repoRepo.Create(repo); err != nil {
-			log.Printf("failed to save repo %s: %v", name, err)
-			continue
+		if repo.IsFork {
+			details, err := s.githubClient.GetRepoDetails(owner, repo.Name)
+			if err != nil {
+				log.Printf("failed to fetch fork parent info for %s: %v", repo.FullName, err)
+			} else if parent, ok := details["parent"].(map[string]interface{}); ok {
+				repo.ForkedFrom, _ = parent["full_name"].(string)
+				if parentOwner, ok := parent["owner"].(map[string]interface{}); ok {
+					repo.ForkedFromOwner, _ = parentOwner["login"].(string)
+				}
+			}
 		}
 
-		stored, err := s.repoRepo.GetByName(name, owner)
+		collabs, err := s.githubClient.GetCollaborators(owner, repo.Name)
 		if err != nil {
-			log.Printf("failed to reload saved repo %s: %v", name, err)
+			log.Printf("failed to fetch collaborators for %s: %v", repo.FullName, err)
+			repo.CollaboratorsList = "no collaborator"
+			repo.WhoHasAccess = "no collaborator"
+		} else {
+			repo.CollaboratorsCount = len(collabs)
+
+			var names []string
+			var accessDetails []string
+
+			for _, c := range collabs {
+				login, ok := c["login"].(string)
+				if !ok || login == "" {
+					continue
+				}
+				names = append(names, login)
+
+				level := "read"
+				if perms, ok := c["permissions"].(map[string]interface{}); ok {
+					if admin, _ := perms["admin"].(bool); admin {
+						level = "admin"
+					} else if push, _ := perms["push"].(bool); push {
+						level = "write"
+					}
+				}
+				accessDetails = append(accessDetails, fmt.Sprintf("%s (%s)", login, level))
+			}
+
+			if len(names) == 0 {
+				repo.CollaboratorsList = "no collaborator"
+				repo.WhoHasAccess = "no collaborator"
+			} else {
+				repo.CollaboratorsList = strings.Join(names, ", ")
+				repo.WhoHasAccess = strings.Join(accessDetails, ", ")
+			}
+		}
+
+		if err := s.repoRepo.Upsert(repo); err != nil {
+			log.Printf("failed to save repo %s: %v", repo.Name, err)
+			continue
+		}
+
+		stored, err := s.repoRepo.GetByName(repo.Name, owner)
+		if err != nil {
+			log.Printf("failed to reload saved repo %s: %v", repo.Name, err)
 			continue
 		}
 		saved = append(saved, stored)
 	}
 
+	// Second pass: "Forked To Count" = how many repos in THIS tracked batch
+	// are forks of a given repo. This is computed locally, not from GitHub,
+	// since GitHub doesn't expose a full fork list via the REST API.
+	forkCounts := map[string]int{}
+	for _, r := range saved {
+		if r.ForkedFrom != "" {
+			forkCounts[r.ForkedFrom]++
+		}
+	}
+	for _, r := range saved {
+		if count, ok := forkCounts[r.FullName]; ok && count != r.ForkedToCount {
+			r.ForkedToCount = count
+			if err := s.repoRepo.Upsert(r); err != nil {
+				log.Printf("failed to update forked_to_count for %s: %v", r.FullName, err)
+			}
+		}
+	}
+
 	return saved, nil
 }
-
 // LoadCollaborators fetches collaborators for a single repo from GitHub and
 // persists them. Creates the repo record first if it doesn't exist yet
 // (so you can call this without calling LoadRepos first).
@@ -223,48 +281,81 @@ func (s *CheckerService) ExportToExcel() (*bytes.Buffer, error) {
 	}
 
 	f := excelize.NewFile()
-	sheet := "Collaborators"
+	sheet := "Repositories"
 	f.SetSheetName("Sheet1", sheet)
 
-	headers := []string{"Repo", "Owner", "Full Name", "Username", "Has Access", "Checked At"}
+		headers := []string{
+			"Repository Name", "Full Name", "Owner", "Visibility", "Private", "Is Fork",
+			"Forked From", "Forked From Owner", "Forks Count", "Forked To Count", "Stars",
+			"Collaborators Count", "Collaborators", "Who Has Access", "Language", "Size (KB)", "Created At", "Updated At",
+			"Pushed At", "Default Branch", "Archived", "Disabled", "License", "Description", "URL",
+		}
 	for i, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheet, cell, h)
 	}
 
-	row := 2
-	for _, repo := range repos {
-		collabs, err := s.collabRepo.GetByRepo(repo.ID)
-		if err != nil {
-			log.Printf("failed to load collaborators for repo %s: %v", repo.Name, err)
-			continue
+	for i, repo := range repos {
+		row := i + 2
+		values := []interface{}{
+			repo.Name, repo.FullName, repo.Owner, repo.Visibility, repo.Private, repo.IsFork,
+			repo.ForkedFrom, repo.ForkedFromOwner, repo.ForksCount, repo.ForkedToCount, repo.StargazersCount,
+			repo.CollaboratorsCount, repo.CollaboratorsList, repo.WhoHasAccess, repo.Language, repo.SizeKB, repo.CreatedAt, repo.UpdatedAt,
+			repo.PushedAt, repo.DefaultBranch, repo.Archived, repo.Disabled, repo.License,
+			repo.Description, repo.URL,
 		}
-
-		if len(collabs) == 0 {
-			f.SetCellValue(sheet, fmt.Sprintf("A%d", row), repo.Name)
-			f.SetCellValue(sheet, fmt.Sprintf("B%d", row), repo.Owner)
-			f.SetCellValue(sheet, fmt.Sprintf("C%d", row), repo.FullName)
-			row++
-			continue
-		}
-
-		for _, c := range collabs {
-			f.SetCellValue(sheet, fmt.Sprintf("A%d", row), repo.Name)
-			f.SetCellValue(sheet, fmt.Sprintf("B%d", row), repo.Owner)
-			f.SetCellValue(sheet, fmt.Sprintf("C%d", row), repo.FullName)
-			f.SetCellValue(sheet, fmt.Sprintf("D%d", row), c.Username)
-			f.SetCellValue(sheet, fmt.Sprintf("E%d", row), c.HasAccess)
-			f.SetCellValue(sheet, fmt.Sprintf("F%d", row), c.CheckedAt.Format(time.RFC3339))
-			row++
+		for j, v := range values {
+			cell, _ := excelize.CoordinatesToCellName(j+1, row)
+			f.SetCellValue(sheet, cell, v)
 		}
 	}
 
-	f.SetColWidth(sheet, "A", "C", 25)
-	f.SetColWidth(sheet, "D", "F", 20)
+	f.SetColWidth(sheet, "A", "B", 28)
+	f.SetColWidth(sheet, "C", "D", 16)
+	f.SetColWidth(sheet, "G", "H", 22)
+	f.SetColWidth(sheet, "U", "U", 40)
+	f.SetColWidth(sheet, "W", "W", 40)
 
 	buf, err := f.WriteToBuffer()
 	if err != nil {
 		return nil, fmt.Errorf("failed to write excel buffer: %w", err)
 	}
 	return buf, nil
+}
+
+func mapRawRepoToModel(owner string, r map[string]interface{}) *models.Repo {
+	repo := &models.Repo{Owner: owner}
+
+	repo.Name, _ = r["name"].(string)
+	repo.FullName, _ = r["full_name"].(string)
+	repo.URL, _ = r["html_url"].(string)
+	repo.Visibility, _ = r["visibility"].(string)
+	repo.Private, _ = r["private"].(bool)
+	repo.IsFork, _ = r["fork"].(bool)
+	repo.Language, _ = r["language"].(string)
+	repo.CreatedAt, _ = r["created_at"].(string)
+	repo.UpdatedAt, _ = r["updated_at"].(string)
+	repo.PushedAt, _ = r["pushed_at"].(string)
+	repo.DefaultBranch, _ = r["default_branch"].(string)
+	repo.Archived, _ = r["archived"].(bool)
+	repo.Disabled, _ = r["disabled"].(bool)
+	repo.Description, _ = r["description"].(string)
+
+	if v, ok := r["forks_count"].(float64); ok {
+		repo.ForksCount = int(v)
+	}
+	if v, ok := r["stargazers_count"].(float64); ok {
+		repo.StargazersCount = int(v)
+	}
+	if v, ok := r["size"].(float64); ok {
+		repo.SizeKB = int(v)
+	}
+	if lic, ok := r["license"].(map[string]interface{}); ok && lic != nil {
+		repo.License, _ = lic["name"].(string)
+	}
+	if repo.URL == "" && repo.FullName != "" {
+		repo.URL = "https://github.com/" + repo.FullName
+	}
+
+	return repo
 }

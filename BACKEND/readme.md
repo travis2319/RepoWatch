@@ -34,6 +34,42 @@ curl -X POST http://localhost:4000/api/v1/check-single \
 curl http://localhost:4000/check-single
 ```
 
+
+# Health check
+curl http://localhost:4000/health
+
+# Check a user across ALL repos of an owner
+curl -X POST http://localhost:4000/api/v1/check \
+  -H "Content-Type: application/json" \
+  -d '{"owner": "vjaguar", "user": "ChetanNaikk"}'
+
+# Check a user in ONE specific repo
+curl -X POST http://localhost:4000/api/v1/check-single \
+  -H "Content-Type: application/json" \
+  -d '{"owner": "vjaguar", "repo": "command-center", "user": "ChetanNaikk"}'
+
+# Legacy check-single (hardcoded owner/repo/user, GET, no body needed)
+curl http://localhost:4000/check-single
+
+# Get all repos of an owner (public, or authenticated user's full list if owner == token owner)
+curl "http://localhost:4000/api/v1/repos?owner=vjaguar"
+
+# Validate the configured GitHub token
+curl http://localhost:4000/api/v1/github/validate
+
+# Load repos for an owner (persists to DB)
+curl -X POST http://localhost:4000/api/v1/repos/load \
+  -H "Content-Type: application/json" \
+  -d '{"owner": "vjaguar"}'
+
+# Load collaborators for a specific repo (persists to DB)
+curl -X POST http://localhost:4000/api/v1/collaborators/load \
+  -H "Content-Type: application/json" \
+  -d '{"owner": "vjaguar", "repo": "command-center"}'
+
+# Export everything to Excel (downloads file, no params — pulls from DB)
+curl http://localhost:4000/api/v1/export -o repowatch_export.xlsx
+
 <!-- # Health check
 curl http://localhost:4000/health
 
